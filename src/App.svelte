@@ -4,6 +4,8 @@
   import { getConfig, getRunning, getWorkspaces, onRunningUpdated } from "./lib/ipc";
   import { config, running, workspaces } from "./lib/stores";
   import EmptyState from "./lib/components/EmptyState.svelte";
+  import PinnedSection from "./lib/components/PinnedSection.svelte";
+  import AllSection from "./lib/components/AllSection.svelte";
 
   let loading = true;
   let unlisten: UnlistenFn | null = null;
@@ -39,7 +41,8 @@
   {:else if !$config.root_folder}
     <EmptyState />
   {:else}
-    <div class="placeholder">Main view — sections coming in next tasks.</div>
+    <PinnedSection />
+    <AllSection />
   {/if}
 </main>
 
@@ -51,7 +54,7 @@
     font-family: system-ui, -apple-system, sans-serif;
     padding: 1rem;
   }
-  .loading, .placeholder {
+  .loading {
     display: grid;
     place-items: center;
     min-height: 50vh;
