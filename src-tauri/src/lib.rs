@@ -2,6 +2,7 @@ mod commands;
 mod config;
 mod error;
 mod launcher;
+mod polling;
 mod running;
 mod scanner;
 
@@ -26,6 +27,7 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            polling::spawn(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
