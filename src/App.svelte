@@ -6,6 +6,7 @@
   import EmptyState from "./lib/components/EmptyState.svelte";
   import PinnedSection from "./lib/components/PinnedSection.svelte";
   import AllSection from "./lib/components/AllSection.svelte";
+  import RunningSection from "./lib/components/RunningSection.svelte";
 
   let loading = true;
   let unlisten: UnlistenFn | null = null;
@@ -41,6 +42,7 @@
   {:else if !$config.root_folder}
     <EmptyState />
   {:else}
+    <RunningSection />
     <PinnedSection />
     <AllSection />
   {/if}
