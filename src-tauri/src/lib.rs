@@ -1,4 +1,5 @@
 mod config;
+mod launcher;
 mod running;
 mod scanner;
 
