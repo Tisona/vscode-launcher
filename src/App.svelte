@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { getConfig, getRunning, getWorkspaces, onRunningUpdated } from "./lib/ipc";
-  import { config, running, workspaces } from "./lib/stores";
+  import { getConfig, getWorkspaces, onRunningUpdated } from "./lib/ipc";
+  import { applyStatuses, config, workspaces } from "./lib/stores";
   import EmptyState from "./lib/components/EmptyState.svelte";
   import PinnedSection from "./lib/components/PinnedSection.svelte";
   import AllSection from "./lib/components/AllSection.svelte";
@@ -22,8 +22,7 @@
           console.error("scan failed", e);
         }
       }
-      running.set(new Set(await getRunning()));
-      unlisten = await onRunningUpdated((paths) => running.set(new Set(paths)));
+      unlisten = await onRunningUpdated((statuses) => applyStatuses(statuses));
     } catch (e) {
       console.error("init failed", e);
     } finally {

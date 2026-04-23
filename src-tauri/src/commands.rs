@@ -1,7 +1,6 @@
 use crate::config::{self, Config};
 use crate::error::{AppError, AppResult};
 use crate::launcher;
-use crate::running;
 use crate::scanner::{self, WorkspaceEntry};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -47,11 +46,6 @@ pub fn get_workspaces(state: State<'_, AppState>) -> AppResult<Vec<WorkspaceEntr
         Some(p) => Ok(scanner::scan(&p)?),
         None => Ok(Vec::new()),
     }
-}
-
-#[tauri::command]
-pub fn get_running() -> Vec<PathBuf> {
-    running::running_workspaces().into_iter().collect()
 }
 
 #[tauri::command]

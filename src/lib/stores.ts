@@ -1,9 +1,42 @@
 import { derived, writable, type Readable } from "svelte/store";
-import type { Config, WorkspaceEntry } from "./types";
+import type { Config, WorkspaceEntry, WorkspaceStatus } from "./types";
+
+const HISTORY_SIZE = 30;
 
 export const config = writable<Config>({ root_folder: null, pinned: [], icons: {} });
 export const workspaces = writable<WorkspaceEntry[]>([]);
-export const running = writable<Set<string>>(new Set());
+export const running = writable<Map<string, WorkspaceStatus>>(new Map());
+export const cpuHistory = writable<Map<string, number[]>>(new Map());
+export const ramHistory = writable<Map<string, number[]>>(new Map());
+
+/** Call from the onRunningUpdated callback. */
+export function applyStatuses(statuses: WorkspaceStatus[]) {
+  const m = new Map<string, WorkspaceStatus>();
+  for (const s of statuses) m.set(s.path, s);
+  running.set(m);
+
+  cpuHistory.update((hist) => {
+    const next = new Map<string, number[]>();
+    for (const [path, s] of m) {
+      const prev = hist.get(path) ?? [];
+      const arr = [...prev, s.cpu];
+      if (arr.length > HISTORY_SIZE) arr.splice(0, arr.length - HISTORY_SIZE);
+      next.set(path, arr);
+    }
+    return next;
+  });
+
+  ramHistory.update((hist) => {
+    const next = new Map<string, number[]>();
+    for (const [path, s] of m) {
+      const prev = hist.get(path) ?? [];
+      const arr = [...prev, s.ram_bytes];
+      if (arr.length > HISTORY_SIZE) arr.splice(0, arr.length - HISTORY_SIZE);
+      next.set(path, arr);
+    }
+    return next;
+  });
+}
 
 export interface TileModel {
   path: string;
@@ -11,30 +44,47 @@ export interface TileModel {
   icon: string | null;
   isRunning: boolean;
   isPinned: boolean;
+  // Only populated when isRunning === true:
+  cpu: number;
+  ramBytes: number;
+  windowCount: number;
+  cpuHistory: number[];
+  ramHistory: number[];
 }
 
-const buildTile = (e: WorkspaceEntry, cfg: Config, runSet: Set<string>): TileModel => {
+const buildTile = (
+  e: WorkspaceEntry,
+  cfg: Config,
+  runMap: Map<string, WorkspaceStatus>,
+  cpuHist: Map<string, number[]>,
+  ramHist: Map<string, number[]>
+): TileModel => {
+  const status = runMap.get(e.path);
   const override = cfg.icons[e.path] ?? null;
   return {
     path: e.path,
     displayName: e.display_name,
     icon: override ?? e.auto_icon,
-    isRunning: runSet.has(e.path),
+    isRunning: !!status,
     isPinned: cfg.pinned.includes(e.path),
+    cpu: status?.cpu ?? 0,
+    ramBytes: status?.ram_bytes ?? 0,
+    windowCount: status?.window_count ?? 0,
+    cpuHistory: cpuHist.get(e.path) ?? [],
+    ramHistory: ramHist.get(e.path) ?? [],
   };
 };
 
 export const runningTiles: Readable<TileModel[]> = derived(
-  [workspaces, running, config],
-  ([$ws, $run, $cfg]) => {
+  [workspaces, running, config, cpuHistory, ramHistory],
+  ([$ws, $run, $cfg, $cpuH, $ramH]) => {
     const known = new Map($ws.map((w) => [w.path, w]));
     const result: TileModel[] = [];
-    for (const path of $run) {
+    for (const [path, status] of $run) {
       const w = known.get(path);
       if (w) {
-        result.push(buildTile(w, $cfg, $run));
+        result.push(buildTile(w, $cfg, $run, $cpuH, $ramH));
       } else {
-        // Outsider — running but not in scanned folder.
         const name = path.split(/[\\/]/).pop()?.replace(/\.code-workspace$/, "") ?? path;
         result.push({
           path,
@@ -42,6 +92,11 @@ export const runningTiles: Readable<TileModel[]> = derived(
           icon: $cfg.icons[path] ?? null,
           isRunning: true,
           isPinned: $cfg.pinned.includes(path),
+          cpu: status.cpu,
+          ramBytes: status.ram_bytes,
+          windowCount: status.window_count,
+          cpuHistory: $cpuH.get(path) ?? [],
+          ramHistory: $ramH.get(path) ?? [],
         });
       }
     }
@@ -52,14 +107,14 @@ export const runningTiles: Readable<TileModel[]> = derived(
 );
 
 export const pinnedTiles: Readable<TileModel[]> = derived(
-  [workspaces, running, config],
-  ([$ws, $run, $cfg]) =>
+  [workspaces, running, config, cpuHistory, ramHistory],
+  ([$ws, $run, $cfg, $cpuH, $ramH]) =>
     $ws
       .filter((w) => $cfg.pinned.includes(w.path))
-      .map((w) => buildTile(w, $cfg, $run))
+      .map((w) => buildTile(w, $cfg, $run, $cpuH, $ramH))
 );
 
 export const allTiles: Readable<TileModel[]> = derived(
-  [workspaces, running, config],
-  ([$ws, $run, $cfg]) => $ws.map((w) => buildTile(w, $cfg, $run))
+  [workspaces, running, config, cpuHistory, ramHistory],
+  ([$ws, $run, $cfg, $cpuH, $ramH]) => $ws.map((w) => buildTile(w, $cfg, $run, $cpuH, $ramH))
 );

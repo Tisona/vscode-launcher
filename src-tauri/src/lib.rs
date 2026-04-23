@@ -34,7 +34,6 @@ pub fn run() {
             commands::get_config,
             commands::set_root_folder,
             commands::get_workspaces,
-            commands::get_running,
             commands::launch,
             commands::set_pinned,
             commands::set_icon,

@@ -1,6 +1,4 @@
-use crate::running;
-use std::collections::HashSet;
-use std::path::PathBuf;
+use crate::running::Poller;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
@@ -9,16 +7,12 @@ pub const EVENT_RUNNING_UPDATED: &str = "running-workspaces-updated";
 
 pub fn spawn(app: AppHandle) {
     std::thread::spawn(move || {
-        let mut last: HashSet<PathBuf> = HashSet::new();
+        let mut poller = Poller::new();
         loop {
-            let current = std::panic::catch_unwind(running::running_workspaces)
-                .unwrap_or_default();
-            if current != last {
-                let payload: Vec<PathBuf> = current.iter().cloned().collect();
-                let _ = app.emit(EVENT_RUNNING_UPDATED, payload);
-                last = current;
-            }
             std::thread::sleep(POLL_INTERVAL);
+            let current = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| poller.tick()))
+                .unwrap_or_default();
+            let _ = app.emit(EVENT_RUNNING_UPDATED, &current);
         }
     });
 }

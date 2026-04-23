@@ -9,3 +9,10 @@ export interface Config {
   pinned: string[];
   icons: Record<string, string>;
 }
+
+export interface WorkspaceStatus {
+  path: string;
+  cpu: number; // raw per-tree sum, 100 = one full core
+  ram_bytes: number;
+  window_count: number;
+}
