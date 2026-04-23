@@ -1,7 +1,7 @@
 import { derived, writable, type Readable } from "svelte/store";
 import type { Config, WorkspaceEntry, WorkspaceStatus } from "./types";
 
-const HISTORY_SIZE = 30;
+const HISTORY_SIZE = 60;
 
 export const config = writable<Config>({ root_folder: null, pinned: [], icons: {} });
 export const workspaces = writable<WorkspaceEntry[]>([]);

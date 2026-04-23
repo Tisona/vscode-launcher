@@ -2,7 +2,7 @@ use crate::running::Poller;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
-const POLL_INTERVAL: Duration = Duration::from_secs(2);
+const POLL_INTERVAL: Duration = Duration::from_secs(5);
 pub const EVENT_RUNNING_UPDATED: &str = "running-workspaces-updated";
 
 pub fn spawn(app: AppHandle) {

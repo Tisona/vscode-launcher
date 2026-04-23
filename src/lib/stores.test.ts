@@ -73,14 +73,34 @@ describe("stores", () => {
     expect(tiles[0].cpu).toBe(5);
   });
 
-  it("applyStatuses accumulates up to 30 samples of history", () => {
+  it("applyStatuses accumulates up to 60 samples of history", () => {
     resetStores();
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < 65; i++) {
       applyStatuses([{ path: "/x.code-workspace", cpu: i, ram_bytes: 1000 * i, window_count: 1 }]);
     }
     const hist = get(cpuHistory).get("/x.code-workspace")!;
-    expect(hist).toHaveLength(30);
+    expect(hist).toHaveLength(60);
     expect(hist[0]).toBe(5);
-    expect(hist[29]).toBe(34);
+    expect(hist[59]).toBe(64);
+  });
+
+  it("drops history for workspaces no longer running", () => {
+    resetStores();
+    // Tick 1: workspace A running.
+    applyStatuses([{ path: "/a.code-workspace", cpu: 10, ram_bytes: 1000, window_count: 1 }]);
+    expect(get(cpuHistory).has("/a.code-workspace")).toBe(true);
+    expect(get(ramHistory).has("/a.code-workspace")).toBe(true);
+
+    // Tick 2: workspace A closed, workspace B running.
+    applyStatuses([{ path: "/b.code-workspace", cpu: 20, ram_bytes: 2000, window_count: 1 }]);
+    expect(get(cpuHistory).has("/a.code-workspace")).toBe(false);
+    expect(get(ramHistory).has("/a.code-workspace")).toBe(false);
+    expect(get(cpuHistory).get("/b.code-workspace")).toEqual([20]);
+
+    // Tick 3: nothing running.
+    applyStatuses([]);
+    expect(get(cpuHistory).size).toBe(0);
+    expect(get(ramHistory).size).toBe(0);
+    expect(get(running).size).toBe(0);
   });
 });
