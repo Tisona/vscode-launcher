@@ -68,7 +68,7 @@
     : false;
 </script>
 
-<svelte:window on:click={onWindowClick} on:contextmenu={onWindowClick} />
+<svelte:window on:click={onWindowClick} />
 
 {#if $contextMenu}
   <ul
