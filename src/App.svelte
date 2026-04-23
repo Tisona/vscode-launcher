@@ -7,6 +7,7 @@
   import PinnedSection from "./lib/components/PinnedSection.svelte";
   import AllSection from "./lib/components/AllSection.svelte";
   import RunningSection from "./lib/components/RunningSection.svelte";
+  import ContextMenu from "./lib/components/ContextMenu.svelte";
 
   let loading = true;
   let unlisten: UnlistenFn | null = null;
@@ -45,6 +46,7 @@
     <PinnedSection />
     <AllSection />
   {/if}
+  <ContextMenu />
 </main>
 
 <style>

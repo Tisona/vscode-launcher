@@ -2,6 +2,7 @@
   import { convertFileSrc } from "@tauri-apps/api/core";
   import type { TileModel } from "../stores";
   import { launch } from "../ipc";
+  import { openMenu } from "../contextMenu";
 
   export let tile: TileModel;
   export let size: "large" | "small" = "small";
@@ -50,6 +51,7 @@
   class="tile {size}"
   class:running={tile.isRunning}
   on:click={handleClick}
+  on:contextmenu|preventDefault={(e) => openMenu(tile, e)}
   title={tile.path}
 >
   <div class="header">
