@@ -2,13 +2,16 @@
   import { onDestroy, onMount } from "svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { getConfig, getWorkspaces, onRunningUpdated } from "./lib/ipc";
-  import { applyStatuses, config, workspaces } from "./lib/stores";
+  import { applyStatuses, config, scanError, workspaces } from "./lib/stores";
   import EmptyState from "./lib/components/EmptyState.svelte";
   import PinnedSection from "./lib/components/PinnedSection.svelte";
   import AllSection from "./lib/components/AllSection.svelte";
   import RunningSection from "./lib/components/RunningSection.svelte";
   import ContextMenu from "./lib/components/ContextMenu.svelte";
   import SettingsDialog from "./lib/components/SettingsDialog.svelte";
+  import Toast from "./lib/components/Toast.svelte";
+  import Banner from "./lib/components/Banner.svelte";
+  import { pushToast } from "./lib/toasts";
 
   let loading = true;
   let settingsOpen = false;
@@ -21,13 +24,15 @@
       if (cfg.root_folder) {
         try {
           workspaces.set(await getWorkspaces());
+          scanError.set(null);
         } catch (e) {
-          console.error("scan failed", e);
+          scanError.set(`Workspaces folder could not be read: ${e}`);
+          workspaces.set([]);
         }
       }
       unlisten = await onRunningUpdated((statuses) => applyStatuses(statuses));
     } catch (e) {
-      console.error("init failed", e);
+      pushToast(`Failed to initialize: ${e}`);
     } finally {
       loading = false;
     }
@@ -51,12 +56,16 @@
   {:else if !$config.root_folder}
     <EmptyState />
   {:else}
+    {#if $scanError}
+      <Banner message={$scanError} kind="warn" />
+    {/if}
     <RunningSection />
     <PinnedSection />
     <AllSection />
   {/if}
   <ContextMenu />
   <SettingsDialog isOpen={settingsOpen} onClose={() => (settingsOpen = false)} />
+  <Toast />
 </main>
 
 <style>

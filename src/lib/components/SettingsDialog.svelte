@@ -1,7 +1,8 @@
 <script lang="ts">
   import { open } from "@tauri-apps/plugin-dialog";
   import { getWorkspaces, resolvedCodeBinary, setRootFolder } from "../ipc";
-  import { config, workspaces } from "../stores";
+  import { config, scanError, workspaces } from "../stores";
+  import { pushToast } from "../toasts";
 
   export let isOpen = false;
   export let onClose: () => void;
@@ -18,8 +19,9 @@
       const newCfg = await setRootFolder(selected);
       config.set(newCfg);
       workspaces.set(await getWorkspaces());
+      scanError.set(null);
     } catch (e) {
-      console.error("pick failed", e);
+      scanError.set(`Workspaces folder could not be read: ${e}`);
     }
   }
 
@@ -27,8 +29,10 @@
     if (!$config.root_folder) return;
     try {
       workspaces.set(await getWorkspaces());
+      scanError.set(null);
     } catch (e) {
-      console.error("rescan failed", e);
+      pushToast(`Rescan failed: ${e}`);
+      scanError.set(`Workspaces folder could not be read: ${e}`);
     }
   }
 </script>

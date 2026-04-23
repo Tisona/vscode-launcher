@@ -4,6 +4,7 @@
   import { contextMenu, closeMenu } from "../contextMenu";
   import { setIcon, setPinned } from "../ipc";
   import { config } from "../stores";
+  import { pushToast } from "../toasts";
 
   async function togglePin() {
     const s = $contextMenu;
@@ -12,7 +13,7 @@
       const newCfg = await setPinned(s.tile.path, !s.tile.isPinned);
       config.set(newCfg);
     } catch (e) {
-      console.error("pin failed", e);
+      pushToast(`Pin failed: ${e}`);
     }
     closeMenu();
   }
@@ -29,7 +30,7 @@
       const newCfg = await setIcon(s.tile.path, selected);
       config.set(newCfg);
     } catch (e) {
-      console.error("set icon failed", e);
+      pushToast(`Set icon failed: ${e}`);
     }
     closeMenu();
   }
@@ -41,7 +42,7 @@
       const newCfg = await setIcon(s.tile.path, null);
       config.set(newCfg);
     } catch (e) {
-      console.error("clear icon failed", e);
+      pushToast(`Clear icon failed: ${e}`);
     }
     closeMenu();
   }
@@ -52,7 +53,7 @@
     try {
       await revealItemInDir(s.tile.path);
     } catch (e) {
-      console.error("reveal failed", e);
+      pushToast(`Reveal failed: ${e}`);
     }
     closeMenu();
   }

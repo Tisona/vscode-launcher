@@ -8,6 +8,7 @@ export const workspaces = writable<WorkspaceEntry[]>([]);
 export const running = writable<Map<string, WorkspaceStatus>>(new Map());
 export const cpuHistory = writable<Map<string, number[]>>(new Map());
 export const ramHistory = writable<Map<string, number[]>>(new Map());
+export const scanError = writable<string | null>(null);
 
 /** Call from the onRunningUpdated callback. */
 export function applyStatuses(statuses: WorkspaceStatus[]) {

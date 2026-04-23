@@ -3,6 +3,7 @@
   import type { TileModel } from "../stores";
   import { launch } from "../ipc";
   import { openMenu } from "../contextMenu";
+  import { pushToast } from "../toasts";
 
   export let tile: TileModel;
   export let size: "large" | "small" = "small";
@@ -13,7 +14,7 @@
     try {
       await launch(tile.path);
     } catch (e) {
-      console.error("launch failed", e);
+      pushToast(`Launch failed: ${e}`);
     }
   }
 
