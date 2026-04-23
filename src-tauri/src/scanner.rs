@@ -32,7 +32,11 @@ pub fn scan(root: &Path) -> std::io::Result<Vec<WorkspaceEntry>> {
             auto_icon,
         });
     }
-    entries.sort_by(|a, b| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()));
+    entries.sort_by(|a, b| {
+        a.display_name
+            .to_lowercase()
+            .cmp(&b.display_name.to_lowercase())
+    });
     Ok(entries)
 }
 
@@ -92,7 +96,10 @@ mod tests {
         write(dir.path().join("proj.jpg"), b"x").unwrap();
         write(dir.path().join("proj.png"), b"x").unwrap();
         let entries = scan(dir.path()).unwrap();
-        assert_eq!(entries[0].auto_icon.as_ref().unwrap().extension().unwrap(), "png");
+        assert_eq!(
+            entries[0].auto_icon.as_ref().unwrap().extension().unwrap(),
+            "png"
+        );
     }
 
     #[test]

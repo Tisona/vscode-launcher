@@ -34,7 +34,9 @@ pub fn default_candidates() -> Vec<PathBuf> {
         if let Some(localapp) = dirs::data_local_dir() {
             out.push(localapp.join("Programs/Microsoft VS Code/bin/code.cmd"));
         }
-        out.push(PathBuf::from(r"C:\Program Files\Microsoft VS Code\bin\code.cmd"));
+        out.push(PathBuf::from(
+            r"C:\Program Files\Microsoft VS Code\bin\code.cmd",
+        ));
     } else if cfg!(target_os = "macos") {
         out.push(PathBuf::from(
             "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
@@ -55,9 +57,8 @@ pub fn resolve_code_binary() -> Option<PathBuf> {
 }
 
 pub fn open(workspace: &Path) -> std::io::Result<()> {
-    let bin = resolve_code_binary().ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::NotFound, "VSCode CLI not found")
-    })?;
+    let bin = resolve_code_binary()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "VSCode CLI not found"))?;
     let mut cmd = Command::new(bin);
     cmd.arg(workspace);
     cmd.stdin(Stdio::null())
@@ -105,7 +106,15 @@ mod tests {
         let dir = tempdir().unwrap();
         let code_name = if cfg!(windows) { "code.cmd" } else { "code" };
         let on_path = dir.path().join(code_name);
-        write(&on_path, if cfg!(windows) { "@echo off\n" } else { "#!/bin/sh\n" }).unwrap();
+        write(
+            &on_path,
+            if cfg!(windows) {
+                "@echo off\n"
+            } else {
+                "#!/bin/sh\n"
+            },
+        )
+        .unwrap();
         let path = dir.path().to_string_lossy().into_owned();
         let found = resolve_code_binary_from(&[], Some(&path)).unwrap();
         assert_eq!(found, on_path);

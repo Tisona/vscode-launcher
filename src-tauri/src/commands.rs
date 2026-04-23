@@ -14,7 +14,10 @@ pub struct AppState {
 impl AppState {
     pub fn new(config_path: PathBuf) -> AppResult<Self> {
         let config = config::load_from(&config_path)?;
-        Ok(Self { config: Mutex::new(config), config_path })
+        Ok(Self {
+            config: Mutex::new(config),
+            config_path,
+        })
     }
 
     fn persist(&self) -> AppResult<()> {
@@ -82,8 +85,12 @@ pub fn set_icon(
     {
         let mut cfg = state.config.lock().unwrap();
         match icon {
-            Some(i) => { cfg.icons.insert(workspace, i); }
-            None => { cfg.icons.remove(&workspace); }
+            Some(i) => {
+                cfg.icons.insert(workspace, i);
+            }
+            None => {
+                cfg.icons.remove(&workspace);
+            }
         }
     }
     state.persist()?;

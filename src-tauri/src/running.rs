@@ -5,7 +5,7 @@ use sysinfo::{Pid, Process, ProcessesToUpdate, System};
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct WorkspaceStatus {
     pub path: PathBuf,
-    pub cpu: f32,          // raw per-process-tree sum; 100.0 = one full core
+    pub cpu: f32, // raw per-process-tree sum; 100.0 = one full core
     pub ram_bytes: u64,
     pub window_count: u32,
 }
@@ -24,8 +24,12 @@ impl Poller {
 
     pub fn tick(&mut self) -> Vec<WorkspaceStatus> {
         self.sys.refresh_processes(ProcessesToUpdate::All, true);
-        let processes: HashMap<Pid, &Process> =
-            self.sys.processes().iter().map(|(p, pr)| (*p, pr)).collect();
+        let processes: HashMap<Pid, &Process> = self
+            .sys
+            .processes()
+            .iter()
+            .map(|(p, pr)| (*p, pr))
+            .collect();
         let children = build_children_map(&processes);
 
         // Main-process detection: any process whose argv contains an arg ending in .code-workspace.
@@ -95,7 +99,9 @@ pub fn sum_tree(
 
 pub fn extract_workspace_path_from_args(args: &[String]) -> Option<PathBuf> {
     for arg in args {
-        let trimmed = arg.trim_start_matches("--file=").trim_start_matches("--folder=");
+        let trimmed = arg
+            .trim_start_matches("--file=")
+            .trim_start_matches("--folder=");
         if trimmed.ends_with(".code-workspace") {
             return Some(PathBuf::from(trimmed));
         }
