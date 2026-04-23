@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use sysinfo::{Pid, Process, ProcessesToUpdate, System};
+use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System};
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct WorkspaceStatus {
@@ -17,13 +17,22 @@ pub struct Poller {
 impl Poller {
     pub fn new() -> Self {
         let mut sys = System::new();
-        // First refresh — CPU deltas will be zero on first tick.
-        sys.refresh_processes(ProcessesToUpdate::All, true);
+        // First refresh — CPU deltas will be zero on first tick. We use
+        // `everything()` so `cmd()` is populated (Windows needs this).
+        sys.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::everything(),
+        );
         Self { sys }
     }
 
     pub fn tick(&mut self) -> Vec<WorkspaceStatus> {
-        self.sys.refresh_processes(ProcessesToUpdate::All, true);
+        self.sys.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::everything(),
+        );
         let processes: HashMap<Pid, &Process> = self
             .sys
             .processes()
@@ -41,6 +50,20 @@ impl Poller {
                 .iter()
                 .map(|s| s.to_string_lossy().into_owned())
                 .collect();
+
+            // Diagnostic: print every process whose name looks VSCode-ish so we
+            // can tell whether sysinfo is capturing command-line args on Windows.
+            let name_lc = proc_.name().to_string_lossy().to_lowercase();
+            if name_lc.contains("code") {
+                eprintln!(
+                    "[poller] pid={} name={:?} args_len={} args={:?}",
+                    pid,
+                    proc_.name(),
+                    args.len(),
+                    args
+                );
+            }
+
             if let Some(ws) = extract_workspace_path_from_args(&args) {
                 let canon = std::fs::canonicalize(&ws).unwrap_or(ws);
                 let (cpu, ram) = sum_tree(*pid, &children, &processes);
