@@ -61,3 +61,54 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.rust_target }}
+
+      # ---------------------------------------------------------------
+      # Portable artifacts — zip the raw binaries and attach them to
+      # the release alongside the Tauri-bundled installers. Linux's
+      # AppImage is already portable, so no extra step for Ubuntu.
+      # ---------------------------------------------------------------
+
+      - name: Create portable Windows zip
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $src = "src-tauri/target/${{ matrix.rust_target }}/release/app.exe"
+          if (-not (Test-Path $src)) {
+            Write-Error "Expected raw exe at $src — did cargo build run?"
+            exit 1
+          }
+          Copy-Item $src vscode-launcher.exe
+          Compress-Archive -Path vscode-launcher.exe -DestinationPath vscode-launcher-windows-x64.zip
+
+      - name: Attach portable Windows zip
+        if: matrix.os == 'windows-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: vscode-launcher-windows-x64.zip
+
+      - name: Create portable macOS zip (arm64)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd "src-tauri/target/${{ matrix.rust_target }}/release/bundle/macos"
+          zip -r -y "$GITHUB_WORKSPACE/vscode-launcher-macos-arm64.zip" vscode-launcher.app
+
+      - name: Attach portable macOS arm64 zip
+        if: matrix.os == 'macos-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: vscode-launcher-macos-arm64.zip
+
+      - name: Create portable macOS zip (x64)
+        if: matrix.os == 'macos-13'
+        run: |
+          cd "src-tauri/target/${{ matrix.rust_target }}/release/bundle/macos"
+          zip -r -y "$GITHUB_WORKSPACE/vscode-launcher-macos-x64.zip" vscode-launcher.app
+
+      - name: Attach portable macOS x64 zip
+        if: matrix.os == 'macos-13'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: vscode-launcher-macos-x64.zip
