@@ -1,11 +1,24 @@
 # VSCode Launcher
 
-A small cross-platform desktop launcher for VSCode workspaces.
+**For those tired of looking for *that* specific VSCode running.**
 
-Scans a folder of `.code-workspace` files and shows them as clickable buttons.
-Running workspaces appear as large tiles at the top with live CPU and RAM
-sparklines, so you can quickly switch between the projects you have open.
-Pin your favourites. Give each workspace a custom icon.
+You have six VSCode workspaces open. One is the service you're actively debugging,
+one is the infra repo with the terraform you opened yesterday, one is a dev
+server you forgot about, one is the repo a colleague asked you to check, one
+is your notes, and one is the fork you were going to submit a PR from. They
+all share the same blue taskbar icon. The Windows Alt-Tab preview is small
+and they all just look like "some code". You click through four of them to
+find the one you meant, break your flow, and swear at your computer.
+
+This launcher is a single window that shows you exactly which workspaces are
+currently open — as big tiles with the workspace name, a live CPU and RAM
+sparkline for the last five minutes, and an icon you chose yourself.
+One click brings that window to the foreground. No more alt-tab roulette.
+
+It also doubles as a workspace picker: point it at your folder of
+`.code-workspace` files and you get a tidy button-grid of every project you
+work on, with the ones you care about pinned to the top. One click opens
+them in VSCode.
 
 Built with [Tauri 2](https://tauri.app), Rust, and Svelte.
 
@@ -58,36 +71,6 @@ portable exe silently does nothing on launch, install WebView2 from
 [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/) or
 use the installer version (which bundles the WebView2 bootstrapper).
 
-## How it works
-
-### Finding VSCode
-
-On launch, the app looks for the `code` binary in the standard install
-locations per-OS, then falls back to `PATH`. Known locations:
-
-- Windows: `%LOCALAPPDATA%\Programs\Microsoft VS Code\bin\code.cmd`,
-  `C:\Program Files\Microsoft VS Code\bin\code.cmd`
-- macOS: `/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code`
-- Linux: `/usr/bin/code`, `/usr/local/bin/code`, `/snap/bin/code`
-
-If none of those exist and `code` isn't on `PATH`, you'll get a clear error
-message with a list of the paths that were tried.
-
-### Detecting running workspaces
-
-Every 5 seconds the app enumerates running processes (via `sysinfo`) and
-keeps those whose command-line args contain a path ending in
-`.code-workspace`. This works identically across Windows, macOS, and Linux
-and doesn't depend on VSCode's process name (covering `code`, `code-oss`,
-`vscodium`, `Code.exe`, etc.) or window titles.
-
-RAM and CPU metrics are summed across each workspace's whole process tree
-— the main Electron process plus renderer, extension host, language
-servers, the integrated terminal, and anything spawned from the terminal.
-If you have `npm run dev` or Claude running in a workspace terminal, those
-bytes and cycles count toward that workspace — which is usually the
-information worth having.
-
 ## Build from source
 
 ### Prerequisites
@@ -130,13 +113,6 @@ npm run build
 
 CI runs the same checks on every push across Windows, macOS, and Linux
 (`.github/workflows/ci.yml`).
-
-## Releases
-
-Release builds happen on GitHub Actions when a `v*.*.*` tag is pushed —
-see [`docs/releasing.md`](docs/releasing.md) for the checklist. No code
-signing; three runners (Linux x64, macOS universal, Windows x64) build in
-parallel, ~15 min on a warm cache.
 
 ## License
 
