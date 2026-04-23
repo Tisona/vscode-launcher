@@ -59,6 +59,16 @@ pub fn resolve_code_binary() -> Option<PathBuf> {
 pub fn open(workspace: &Path) -> std::io::Result<()> {
     let bin = resolve_code_binary()
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "VSCode CLI not found"))?;
+
+    // Windows: allow any process (the main VSCode Electron reached via IPC
+    // through the `code.cmd` CLI hop) to claim foreground on our behalf.
+    // Without this, Windows foreground-activation protection silently ignores
+    // VSCode's SetForegroundWindow and the taskbar entry just flashes.
+    #[cfg(windows)]
+    unsafe {
+        winapi::AllowSetForegroundWindow(winapi::ASFW_ANY);
+    }
+
     let mut cmd = Command::new(bin);
     cmd.arg(workspace);
     cmd.stdin(Stdio::null())
@@ -83,6 +93,15 @@ pub fn open(workspace: &Path) -> std::io::Result<()> {
     }
     cmd.spawn()?;
     Ok(())
+}
+
+#[cfg(windows)]
+mod winapi {
+    #[link(name = "user32")]
+    extern "system" {
+        pub fn AllowSetForegroundWindow(dwProcessId: u32) -> i32;
+    }
+    pub const ASFW_ANY: u32 = 0xFFFF_FFFF;
 }
 
 #[cfg(test)]
