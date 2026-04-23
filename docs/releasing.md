@@ -13,10 +13,11 @@ fits their workflow.
    ```
    git commit -am "chore: bump version to 0.1.0"
    ```
-3. Tag and push:
+3. Push the branch, then tag and push the tag by name:
    ```
-   git tag v0.1.0
-   git push --follow-tags
+   git push
+   git tag -a v0.1.0 -m "v0.1.0"
+   git push origin v0.1.0
    ```
 4. GitHub Actions runs the `Release` workflow (watch it in the Actions tab).
    Once complete, the release is published with all artifacts attached.
@@ -51,10 +52,12 @@ part of Windows 11 and modern Windows 10 (so it's already present on
 virtually any machine you'd run it on). The NSIS installer bundles the
 WebView2 bootstrapper as a fallback.
 
-- If you need to re-run a failed release job, re-push the tag:
+- If you need to re-run a failed release job, delete the tag locally and
+  remotely, then recreate it (annotated) at the current commit and push it by
+  name:
   ```
   git tag -d v0.1.0
   git push origin :refs/tags/v0.1.0
-  git tag v0.1.0
-  git push --follow-tags
+  git tag -a v0.1.0 -m "v0.1.0"
+  git push origin v0.1.0
   ```
