@@ -5,6 +5,9 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -13,12 +16,13 @@ jobs:
         include:
           - os: ubuntu-latest
             rust_target: x86_64-unknown-linux-gnu
+            tauri_args: --target x86_64-unknown-linux-gnu
           - os: macos-latest
-            rust_target: aarch64-apple-darwin
-          - os: macos-13
-            rust_target: x86_64-apple-darwin
+            rust_target: aarch64-apple-darwin,x86_64-apple-darwin
+            tauri_args: --target universal-apple-darwin
           - os: windows-latest
             rust_target: x86_64-pc-windows-msvc
+            tauri_args: --target x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +64,7 @@ jobs:
           releaseName: ${{ github.ref_name }}
           releaseDraft: false
           prerelease: false
-          args: --target ${{ matrix.rust_target }}
+          args: ${{ matrix.tauri_args }}
 
       # ---------------------------------------------------------------
       # Portable artifacts — zip the raw binaries and attach them to
@@ -72,7 +76,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $src = "src-tauri/target/${{ matrix.rust_target }}/release/app.exe"
+          $src = "src-tauri/target/x86_64-pc-windows-msvc/release/app.exe"
           if (-not (Test-Path $src)) {
             Write-Error "Expected raw exe at $src — did cargo build run?"
             exit 1
@@ -87,28 +91,15 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: vscode-launcher-windows-x64.zip
 
-      - name: Create portable macOS zip (arm64)
+      - name: Create portable macOS universal zip
         if: matrix.os == 'macos-latest'
         run: |
-          cd "src-tauri/target/${{ matrix.rust_target }}/release/bundle/macos"
-          zip -r -y "$GITHUB_WORKSPACE/vscode-launcher-macos-arm64.zip" vscode-launcher.app
+          cd "src-tauri/target/universal-apple-darwin/release/bundle/macos"
+          zip -r -y "$GITHUB_WORKSPACE/vscode-launcher-macos-universal.zip" vscode-launcher.app
 
-      - name: Attach portable macOS arm64 zip
+      - name: Attach portable macOS universal zip
         if: matrix.os == 'macos-latest'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: vscode-launcher-macos-arm64.zip
-
-      - name: Create portable macOS zip (x64)
-        if: matrix.os == 'macos-13'
-        run: |
-          cd "src-tauri/target/${{ matrix.rust_target }}/release/bundle/macos"
-          zip -r -y "$GITHUB_WORKSPACE/vscode-launcher-macos-x64.zip" vscode-launcher.app
-
-      - name: Attach portable macOS x64 zip
-        if: matrix.os == 'macos-13'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: vscode-launcher-macos-x64.zip
+          files: vscode-launcher-macos-universal.zip

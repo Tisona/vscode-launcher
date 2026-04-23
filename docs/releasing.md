@@ -37,8 +37,7 @@ fits their workflow.
 | OS | Installer | Portable |
 |---|---|---|
 | Linux | `vscode-launcher_<version>_amd64.deb` | `vscode-launcher_<version>_amd64.AppImage` (AppImage is portable by design) |
-| macOS arm64 | `vscode-launcher_<version>_aarch64.dmg` | `vscode-launcher-macos-arm64.zip` (contains `vscode-launcher.app`) |
-| macOS x64 | `vscode-launcher_<version>_x64.dmg` | `vscode-launcher-macos-x64.zip` |
+| macOS | `vscode-launcher_<version>_universal.dmg` (universal — runs on arm64 and x64) | `vscode-launcher-macos-universal.zip` (contains `vscode-launcher.app`) |
 | Windows | `vscode-launcher_<version>_x64-setup.exe` (NSIS) | `vscode-launcher-windows-x64.zip` (contains bare `vscode-launcher.exe`) |
 
 **Config location is the same for both** — the app always reads / writes
