@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System};
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -65,9 +65,9 @@ impl Poller {
             }
 
             if let Some(ws) = extract_workspace_path_from_args(&args) {
-                let canon = std::fs::canonicalize(&ws).unwrap_or(ws);
+                let normalized = normalize_workspace_path(&ws);
                 let (cpu, ram) = sum_tree(*pid, &children, &processes);
-                let entry = per_workspace.entry(canon).or_insert((0.0, 0, 0));
+                let entry = per_workspace.entry(normalized).or_insert((0.0, 0, 0));
                 entry.0 += cpu;
                 entry.1 += ram;
                 entry.2 += 1;
@@ -121,6 +121,24 @@ pub fn sum_tree(
 }
 
 pub fn extract_workspace_path_from_args(args: &[String]) -> Option<PathBuf> {
+    // Skip Chromium subprocesses (renderer, utility, gpu-process, zygote, …).
+    // Only the main Electron process has no `--type=` arg, and that is the
+    // one that carries the workspace path.
+    if args.iter().any(|a| a.starts_with("--type=")) {
+        return None;
+    }
+
+    // Skip CLI-wrapper processes (code.cmd, cli.js). On Windows sysinfo
+    // sometimes returns the entire command line as a single arg for batch
+    // processes, e.g. `Code/bin/code.cmd D:\…\foo.code-workspace`, which
+    // ends with `.code-workspace` and would otherwise match as a bogus path.
+    for arg in args {
+        let lc = arg.to_ascii_lowercase();
+        if lc.contains("code.cmd") || lc.contains("cli.js") {
+            return None;
+        }
+    }
+
     for arg in args {
         // Strip `--file=`, `--folder=`, `--file-uri=`, `--folder-uri=` prefixes
         // (when flag and value are joined with `=`).
@@ -136,6 +154,29 @@ pub fn extract_workspace_path_from_args(args: &[String]) -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// Normalize a Windows path so that running-workspace paths match scanner
+/// output: strip the `\\?\` UNC prefix that `std::fs::canonicalize` adds,
+/// and uppercase the drive letter. On non-Windows this is a no-op.
+fn normalize_workspace_path(p: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        let s = p.to_string_lossy().into_owned();
+        let s = s.strip_prefix(r"\\?\").unwrap_or(&s).to_string();
+        let bytes = s.as_bytes();
+        if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+            let mut out = String::with_capacity(s.len());
+            out.push((bytes[0] as char).to_ascii_uppercase());
+            out.push_str(&s[1..]);
+            return PathBuf::from(out);
+        }
+        PathBuf::from(s)
+    }
+    #[cfg(not(windows))]
+    {
+        p.to_path_buf()
+    }
 }
 
 /// Convert a single argv string into a workspace path if it refers to a
@@ -305,5 +346,48 @@ mod tests {
             extract_workspace_path_from_args(&args),
             Some(PathBuf::from("c:\\proj\\x.code-workspace"))
         );
+    }
+
+    #[test]
+    fn chromium_subprocess_is_ignored() {
+        // A renderer child of Code.exe: has --type=renderer. Must not match
+        // even if an accidental arg resembles a workspace path.
+        let args = vec![
+            "C:\\Program Files\\Microsoft VS Code\\Code.exe".to_string(),
+            "--type=renderer".to_string(),
+            "--user-data-dir=C:\\Users\\u\\AppData\\Roaming\\Code".to_string(),
+            "D:\\proj\\workspace.code-workspace".to_string(),
+        ];
+        assert_eq!(extract_workspace_path_from_args(&args), None);
+    }
+
+    #[test]
+    fn utility_subprocess_is_ignored() {
+        let args = vec![
+            "Code.exe".to_string(),
+            "--type=utility".to_string(),
+            "--utility-sub-type=node.mojom.NodeService".to_string(),
+        ];
+        assert_eq!(extract_workspace_path_from_args(&args), None);
+    }
+
+    #[test]
+    fn code_cmd_wrapper_is_ignored() {
+        // Batch-wrapper process: sysinfo on Windows can return the whole
+        // command line as a single arg, ending in `.code-workspace`.
+        let args = vec![
+            "Code/bin/code.cmd D:\\vault\\work\\vscode\\ci-templates.code-workspace".to_string(),
+        ];
+        assert_eq!(extract_workspace_path_from_args(&args), None);
+    }
+
+    #[test]
+    fn cli_js_helper_is_ignored() {
+        let args = vec![
+            "C:\\Program Files\\Microsoft VS Code\\Code.exe".to_string(),
+            "C:\\Program Files\\Microsoft VS Code\\resources\\app\\out\\cli.js".to_string(),
+            "D:\\proj\\x.code-workspace".to_string(),
+        ];
+        assert_eq!(extract_workspace_path_from_args(&args), None);
     }
 }
