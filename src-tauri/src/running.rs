@@ -99,14 +99,91 @@ pub fn sum_tree(
 
 pub fn extract_workspace_path_from_args(args: &[String]) -> Option<PathBuf> {
     for arg in args {
-        let trimmed = arg
-            .trim_start_matches("--file=")
-            .trim_start_matches("--folder=");
-        if trimmed.ends_with(".code-workspace") {
-            return Some(PathBuf::from(trimmed));
+        // Strip `--file=`, `--folder=`, `--file-uri=`, `--folder-uri=` prefixes
+        // (when flag and value are joined with `=`).
+        let stripped = arg
+            .strip_prefix("--file=")
+            .or_else(|| arg.strip_prefix("--folder="))
+            .or_else(|| arg.strip_prefix("--file-uri="))
+            .or_else(|| arg.strip_prefix("--folder-uri="))
+            .unwrap_or(arg);
+
+        if let Some(path) = workspace_arg_to_path(stripped) {
+            return Some(path);
         }
     }
     None
+}
+
+/// Convert a single argv string into a workspace path if it refers to a
+/// `.code-workspace` file, handling both plain paths and `file://` URIs with
+/// percent-encoding (VSCode passes `--file-uri file:///d%3A/.../x.code-workspace`
+/// on Windows).
+fn workspace_arg_to_path(s: &str) -> Option<PathBuf> {
+    if !s.ends_with(".code-workspace") {
+        return None;
+    }
+    if let Some(rest) = s.strip_prefix("file://") {
+        return Some(PathBuf::from(decode_file_uri_path(rest)));
+    }
+    Some(PathBuf::from(s))
+}
+
+/// Decode the path portion of a `file://` URI into a native path.
+/// Windows URIs look like `file:///d%3A/path/foo` → `d:\path\foo`.
+/// POSIX URIs look like `file:///home/u/foo` → `/home/u/foo`.
+fn decode_file_uri_path(rest: &str) -> String {
+    // On Windows a file URI has `/` before the drive letter; strip it so the
+    // decoded path starts with `d:` rather than `/d:`. Heuristic: if the
+    // second character after the optional leading slash is `%3A` or `:`, it
+    // is a Windows drive-letter URI regardless of the host OS.
+    let looks_like_windows = {
+        let stripped = rest.strip_prefix('/').unwrap_or(rest);
+        let bytes = stripped.as_bytes();
+        bytes.len() >= 4
+            && bytes[0].is_ascii_alphabetic()
+            && (bytes[1] == b':'
+                || (bytes[1] == b'%' && bytes[2] == b'3' && (bytes[3] == b'a' || bytes[3] == b'A')))
+    };
+    let trimmed = if looks_like_windows && rest.starts_with('/') {
+        &rest[1..]
+    } else {
+        rest
+    };
+
+    let decoded = percent_decode(trimmed);
+    if looks_like_windows {
+        decoded.replace('/', "\\")
+    } else {
+        decoded
+    }
+}
+
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (hex_digit(bytes[i + 1]), hex_digit(bytes[i + 2])) {
+                out.push(hi * 16 + lo);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn hex_digit(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -162,6 +239,48 @@ mod tests {
         assert_eq!(
             extract_workspace_path_from_args(&args),
             Some(PathBuf::from("/a.code-workspace"))
+        );
+    }
+
+    #[test]
+    fn decodes_windows_file_uri_from_separate_arg() {
+        // VSCode on Windows invokes its main process with `--file-uri` and the
+        // URI as separate argv entries.
+        let args = vec![
+            "C:\\Users\\u\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe".to_string(),
+            "--file-uri".to_string(),
+            "file:///d%3A/vault/work/vscode/personal.code-workspace".to_string(),
+        ];
+        assert_eq!(
+            extract_workspace_path_from_args(&args),
+            Some(PathBuf::from(
+                "d:\\vault\\work\\vscode\\personal.code-workspace"
+            ))
+        );
+    }
+
+    #[test]
+    fn decodes_posix_file_uri() {
+        let args = vec![
+            "code".to_string(),
+            "file:///home/u/my%20projects/alpha.code-workspace".to_string(),
+        ];
+        assert_eq!(
+            extract_workspace_path_from_args(&args),
+            Some(PathBuf::from("/home/u/my projects/alpha.code-workspace"))
+        );
+    }
+
+    #[test]
+    fn decodes_joined_file_uri_flag() {
+        // `--file-uri=<uri>` rather than two separate args.
+        let args = vec![
+            "code".to_string(),
+            "--file-uri=file:///c%3A/proj/x.code-workspace".to_string(),
+        ];
+        assert_eq!(
+            extract_workspace_path_from_args(&args),
+            Some(PathBuf::from("c:\\proj\\x.code-workspace"))
         );
     }
 }
