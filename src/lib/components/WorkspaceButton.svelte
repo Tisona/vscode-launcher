@@ -54,10 +54,12 @@
                   stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     {/if}
-    <span class="label">{tile.displayName}</span>
-    {#if size === "large" && tile.windowCount > 1}
-      <span class="windows">×{tile.windowCount}</span>
-    {/if}
+    <div class="text">
+      <span class="label">{tile.displayName}</span>
+      {#if size === "large" && tile.windowCount > 1}
+        <span class="windows">×{tile.windowCount} windows</span>
+      {/if}
+    </div>
   </button>
   {#if tile.isRunning && tile.hwnd}
     <button
@@ -75,13 +77,13 @@
     position: relative;
     display: inline-flex;
   }
-  .tile-wrap.large { min-width: 12rem; }
+  .tile-wrap.large { min-width: 15rem; }
 
   .tile {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.6rem;
     width: 100%;
     background: #2d2d2d;
     color: #d4d4d4;
@@ -96,37 +98,45 @@
   .tile-wrap.running .tile { border-color: #0e639c; }
 
   .tile-wrap.large .tile {
-    padding: 0.7rem 0.9rem;
-    font-size: 1rem;
+    padding: 1rem 1.1rem;
+    padding-right: 2rem;
+    font-size: 1.05rem;
+    min-height: 4.5rem;
+    gap: 0.9rem;
   }
 
   .icon { width: 1.25rem; height: 1.25rem; color: #8a8a8a; flex-shrink: 0; }
-  .tile-wrap.large .icon { width: 1.5rem; height: 1.5rem; }
+  .tile-wrap.large .icon { width: 2.2rem; height: 2.2rem; }
   img.icon { object-fit: contain; }
 
-  .label {
+  .text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
     flex: 1;
+    min-width: 0;
+  }
+
+  .label {
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .tile-wrap.large .label { font-weight: 500; }
 
   .windows {
-    font-size: 0.75rem; color: #888;
-    background: #1a1a1a; border: 1px solid #3c3c3c;
-    padding: 0.05rem 0.3rem; border-radius: 3px;
+    font-size: 0.75rem; color: #9a9a9a;
   }
 
   .close {
     position: absolute;
-    top: 2px;
-    right: 2px;
+    top: 4px;
+    right: 4px;
     background: transparent;
     color: #888;
     border: none;
-    font-size: 1rem;
+    font-size: 1.15rem;
     line-height: 1;
     cursor: pointer;
-    padding: 0.1rem 0.35rem;
+    padding: 0.15rem 0.4rem;
     border-radius: 3px;
   }
   .close:hover {

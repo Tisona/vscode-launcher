@@ -30,32 +30,68 @@
   $: ramPoints = sparkline($totalRamHistory);
 </script>
 
-<div class="stats" title="Total CPU and RAM across all VSCode processes (5-minute window)">
-  <div class="stat">
-    <span class="m-label">CPU</span>
-    <svg class="sparkline" viewBox="0 0 100 22" preserveAspectRatio="none" aria-hidden="true">
-      <polyline class="spark-cpu" points={cpuPoints} />
-    </svg>
-    <span class="m-value">{Math.round(cpuNow)}%</span>
+<div class="stats" title="Total CPU and RAM across every VSCode process on this machine (5-minute sparkline)">
+  <div class="heading">
+    <span class="tag">All VSCode</span>
+    <span class="sub">total CPU &amp; RAM across every VSCode process</span>
   </div>
-  <div class="stat">
-    <span class="m-label">RAM</span>
-    <svg class="sparkline" viewBox="0 0 100 22" preserveAspectRatio="none" aria-hidden="true">
-      <polyline class="spark-ram" points={ramPoints} />
-    </svg>
-    <span class="m-value">{formatBytes(ramNow)}</span>
+  <div class="rows">
+    <div class="stat">
+      <span class="m-label">CPU</span>
+      <svg class="sparkline" viewBox="0 0 100 22" preserveAspectRatio="none" aria-hidden="true">
+        <polyline class="spark-cpu" points={cpuPoints} />
+      </svg>
+      <span class="m-value">{Math.round(cpuNow)}%</span>
+    </div>
+    <div class="stat">
+      <span class="m-label">RAM</span>
+      <svg class="sparkline" viewBox="0 0 100 22" preserveAspectRatio="none" aria-hidden="true">
+        <polyline class="spark-ram" points={ramPoints} />
+      </svg>
+      <span class="m-value">{formatBytes(ramNow)}</span>
+    </div>
   </div>
 </div>
 
 <style>
   .stats {
     display: flex;
-    gap: 1rem;
+    align-items: center;
+    gap: 1.25rem;
     background: #252525;
     border: 1px solid #3c3c3c;
     border-radius: 4px;
     padding: 0.6rem 0.9rem;
     margin-bottom: 0.75rem;
+  }
+  .heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex-shrink: 0;
+    min-width: 11rem;
+  }
+  .tag {
+    display: inline-block;
+    background: #0e639c;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: 3px;
+    align-self: flex-start;
+  }
+  .sub {
+    font-size: 0.7rem;
+    color: #888;
+    line-height: 1.3;
+  }
+  .rows {
+    display: flex;
+    flex: 1;
+    gap: 1rem;
   }
   .stat {
     display: grid;
