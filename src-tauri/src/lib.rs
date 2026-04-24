@@ -5,6 +5,7 @@ mod launcher;
 mod polling;
 mod running;
 mod scanner;
+mod window_enum;
 
 use commands::AppState;
 use std::path::PathBuf;

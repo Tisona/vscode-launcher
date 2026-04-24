@@ -15,4 +15,5 @@ export interface WorkspaceStatus {
   cpu: number; // raw per-tree sum, 100 = one full core
   ram_bytes: number;
   window_count: number;
+  displayNameHint?: string | null;
 }

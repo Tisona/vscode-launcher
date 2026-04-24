@@ -1,3 +1,4 @@
+use crate::window_enum;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System};
@@ -8,6 +9,8 @@ pub struct WorkspaceStatus {
     pub cpu: f32, // raw per-process-tree sum; 100.0 = one full core
     pub ram_bytes: u64,
     pub window_count: u32,
+    #[serde(rename = "displayNameHint")]
+    pub display_name_hint: Option<String>,
 }
 
 pub struct Poller {
@@ -41,8 +44,15 @@ impl Poller {
             .collect();
         let children = build_children_map(&processes);
 
-        // Main-process detection: any process whose argv contains an arg ending in .code-workspace.
-        let mut per_workspace: HashMap<PathBuf, (f32, u64, u32)> = HashMap::new();
+        // Collect main Electron PIDs (no --type=, no wrapper). Record tree
+        // metrics and any argv-derived workspace path so we can cross-reference
+        // window-title names against real paths.
+        struct MainInfo {
+            tree_cpu: f32,
+            tree_ram: u64,
+            argv_workspace: Option<PathBuf>,
+        }
+        let mut mains: HashMap<Pid, MainInfo> = HashMap::new();
 
         for (pid, proc_) in &processes {
             let args: Vec<String> = proc_
@@ -64,26 +74,135 @@ impl Poller {
                 );
             }
 
-            if let Some(ws) = extract_workspace_path_from_args(&args) {
-                let normalized = normalize_workspace_path(&ws);
-                let (cpu, ram) = sum_tree(*pid, &children, &processes);
-                let entry = per_workspace.entry(normalized).or_insert((0.0, 0, 0));
-                entry.0 += cpu;
-                entry.1 += ram;
+            if !is_main_electron(&args) {
+                continue;
+            }
+            let argv_workspace =
+                extract_workspace_path_from_args(&args).map(|p| normalize_workspace_path(&p));
+            let (cpu, ram) = sum_tree(*pid, &children, &processes);
+            mains.insert(
+                *pid,
+                MainInfo {
+                    tree_cpu: cpu,
+                    tree_ram: ram,
+                    argv_workspace,
+                },
+            );
+        }
+
+        // Enumerate top-level OS windows (no-op on non-Windows).
+        let windows = window_enum::enumerate_workspace_windows();
+        for w in &windows {
+            eprintln!("[poller] window: pid={} name={:?}", w.pid, w.workspace_name);
+        }
+
+        // Group windows by PID. For each PID, divide its main's tree metrics
+        // by the window count.
+        let mut windows_by_pid: HashMap<Pid, Vec<&window_enum::WorkspaceWindow>> = HashMap::new();
+        for w in &windows {
+            windows_by_pid
+                .entry(Pid::from_u32(w.pid))
+                .or_default()
+                .push(w);
+        }
+
+        // Aggregate per-workspace identity across all windows. Identity key:
+        //   - resolved PathBuf when argv path is known and its display-name
+        //     matches the window's title-derived name
+        //   - otherwise an empty PathBuf + display_name_hint (frontend will
+        //     resolve name -> real path via the workspaces store)
+        //
+        // Hash key includes hint so two different name-only workspaces stay
+        // separate.
+        let mut per_ws: HashMap<(PathBuf, Option<String>), (f32, u64, u32)> = HashMap::new();
+
+        let mut pids_with_windows: std::collections::HashSet<Pid> =
+            std::collections::HashSet::new();
+
+        for (pid, wins) in &windows_by_pid {
+            let Some(info) = mains.get(pid) else {
+                // Window's owner PID is not a main we recorded (might be a
+                // renderer on Windows pre-Electron-20). Skip.
+                continue;
+            };
+            pids_with_windows.insert(*pid);
+            let count = wins.len() as f32;
+            let share_cpu = info.tree_cpu / count;
+            let share_ram = info.tree_ram / wins.len() as u64;
+
+            let argv_name = info
+                .argv_workspace
+                .as_ref()
+                .and_then(|p| workspace_display_name(p));
+
+            for win in wins {
+                // If this window's name matches the argv-derived path's display
+                // name, we can emit a real path. Otherwise fall back to hint.
+                let (path, hint) = match (&info.argv_workspace, &argv_name) {
+                    (Some(p), Some(n)) if n == &win.workspace_name => (p.clone(), None),
+                    _ => (PathBuf::new(), Some(win.workspace_name.clone())),
+                };
+                let entry = per_ws.entry((path, hint)).or_insert((0.0, 0, 0));
+                entry.0 += share_cpu;
+                entry.1 += share_ram;
                 entry.2 += 1;
             }
         }
 
-        per_workspace
+        // Fallback: main PIDs that have an argv workspace but zero detected
+        // windows (non-Windows, or window enumeration missed them). Emit using
+        // the legacy argv-based path.
+        for (pid, info) in &mains {
+            if pids_with_windows.contains(pid) {
+                continue;
+            }
+            let Some(ws) = &info.argv_workspace else {
+                continue;
+            };
+            let entry = per_ws.entry((ws.clone(), None)).or_insert((0.0, 0, 0));
+            entry.0 += info.tree_cpu;
+            entry.1 += info.tree_ram;
+            entry.2 += 1;
+        }
+
+        per_ws
             .into_iter()
-            .map(|(path, (cpu, ram, windows))| WorkspaceStatus {
+            .map(|((path, hint), (cpu, ram, count))| WorkspaceStatus {
                 path,
                 cpu,
                 ram_bytes: ram,
-                window_count: windows,
+                window_count: count,
+                display_name_hint: hint,
             })
             .collect()
     }
+}
+
+/// True if `args` look like a main Electron (no `--type=`, not a CLI wrapper).
+fn is_main_electron(args: &[String]) -> bool {
+    if args.is_empty() {
+        return false;
+    }
+    if args.iter().any(|a| a.starts_with("--type=")) {
+        return false;
+    }
+    for arg in args {
+        let lc = arg.to_ascii_lowercase();
+        if lc.contains("code.cmd") || lc.contains("cli.js") {
+            return false;
+        }
+    }
+    true
+}
+
+/// Given a path like `…/personal.code-workspace`, return `"personal"`.
+fn workspace_display_name(p: &Path) -> Option<String> {
+    let file = p.file_name()?.to_string_lossy().into_owned();
+    let stripped = file.strip_suffix(".code-workspace")?;
+    if stripped.is_empty() {
+        return None;
+    }
+    Some(stripped.to_string())
 }
 
 /// Pure helper: given a process map, build `parent_pid -> [child_pids]`.

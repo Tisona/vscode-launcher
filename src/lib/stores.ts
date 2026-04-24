@@ -1,4 +1,4 @@
-import { derived, writable, type Readable } from "svelte/store";
+import { derived, get, writable, type Readable } from "svelte/store";
 import type { Config, WorkspaceEntry, WorkspaceStatus } from "./types";
 
 const HISTORY_SIZE = 60;
@@ -12,8 +12,20 @@ export const scanError = writable<string | null>(null);
 
 /** Call from the onRunningUpdated callback. */
 export function applyStatuses(statuses: WorkspaceStatus[]) {
+  const currentWorkspaces = get(workspaces);
+  const byDisplayName = new Map(currentWorkspaces.map((w) => [w.display_name, w]));
   const m = new Map<string, WorkspaceStatus>();
-  for (const s of statuses) m.set(s.path, s);
+  for (const s of statuses) {
+    let key = s.path;
+    if (!key && s.displayNameHint) {
+      const match = byDisplayName.get(s.displayNameHint);
+      if (!match) continue; // name-only status we can't resolve → drop
+      key = match.path;
+    } else if (!key) {
+      continue;
+    }
+    m.set(key, { ...s, path: key });
+  }
   running.set(m);
 
   cpuHistory.update((hist) => {
