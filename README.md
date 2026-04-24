@@ -24,6 +24,8 @@ them in VSCode.
 
 Built with [Tauri 2](https://tauri.app), Rust, and Svelte.
 
+![VSCode Launcher screenshot](docs/screenshot.png)
+
 ## Features
 
 - **One-click workspace launch** — click a button to open the workspace in
