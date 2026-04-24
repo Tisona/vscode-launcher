@@ -32,8 +32,8 @@
 
 <div class="stats" title="Total CPU and RAM across every VSCode process on this machine (5-minute sparkline)">
   <div class="heading">
-    <span class="tag">All VSCode</span>
-    <span class="sub">total CPU &amp; RAM across every VSCode process</span>
+    <span class="tag">Stats</span>
+    <span class="sub">across every VSCode process</span>
   </div>
   <div class="rows">
     <div class="stat">
