@@ -87,6 +87,7 @@ unsafe extern "system" fn enum_proc(hwnd: winapi::HWND, lparam: isize) -> i32 {
 }
 
 #[cfg(windows)]
+#[allow(clippy::upper_case_acronyms)]
 mod winapi {
     use std::ffi::c_int;
 

@@ -58,8 +58,10 @@ mod tests {
     fn round_trip_preserves_fields() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("config.json");
-        let mut cfg = Config::default();
-        cfg.root_folder = Some(PathBuf::from("/tmp/ws"));
+        let mut cfg = Config {
+            root_folder: Some(PathBuf::from("/tmp/ws")),
+            ..Config::default()
+        };
         cfg.pinned.push(PathBuf::from("/tmp/ws/a.code-workspace"));
         cfg.icons.insert(
             PathBuf::from("/tmp/ws/a.code-workspace"),
