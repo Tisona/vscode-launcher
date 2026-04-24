@@ -4,11 +4,11 @@ import {
   allTiles,
   applyStatuses,
   config,
-  cpuHistory,
   pinnedTiles,
-  ramHistory,
   running,
   runningTiles,
+  totalCpuHistory,
+  totalRamHistory,
   workspaces,
 } from "./stores";
 
@@ -16,8 +16,8 @@ function resetStores() {
   config.set({ root_folder: null, pinned: [], icons: {} });
   workspaces.set([]);
   running.set(new Map());
-  cpuHistory.set(new Map());
-  ramHistory.set(new Map());
+  totalCpuHistory.set([]);
+  totalRamHistory.set([]);
 }
 
 describe("stores", () => {
@@ -31,8 +31,7 @@ describe("stores", () => {
     expect(tiles).toHaveLength(1);
     expect(tiles[0].displayName).toBe("orphan");
     expect(tiles[0].isRunning).toBe(true);
-    expect(tiles[0].cpu).toBe(12.5);
-    expect(tiles[0].ramBytes).toBe(1_500_000_000);
+    expect(tiles[0].windowCount).toBe(1);
   });
 
   it("pinnedTiles reflects config.pinned", () => {
@@ -70,18 +69,23 @@ describe("stores", () => {
     ]);
     const tiles = get(allTiles);
     expect(tiles[0].isRunning).toBe(true);
-    expect(tiles[0].cpu).toBe(5);
   });
 
-  it("applyStatuses accumulates up to 60 samples of history", () => {
+  it("aggregate history keeps up to 60 samples, summing CPU across workspaces per tick", () => {
     resetStores();
     for (let i = 0; i < 65; i++) {
-      applyStatuses([{ path: "/x.code-workspace", cpu: i, ram_bytes: 1000 * i, window_count: 1 }]);
+      applyStatuses([
+        { path: "/x.code-workspace", cpu: i, ram_bytes: 1000, window_count: 1 },
+        { path: "/y.code-workspace", cpu: 1, ram_bytes: 500, window_count: 1 },
+      ]);
     }
-    const hist = get(cpuHistory).get("/x.code-workspace")!;
-    expect(hist).toHaveLength(60);
-    expect(hist[0]).toBe(5);
-    expect(hist[59]).toBe(64);
+    const cpuHist = get(totalCpuHistory);
+    const ramHist = get(totalRamHistory);
+    expect(cpuHist).toHaveLength(60);
+    expect(cpuHist[0]).toBe(6); // tick 5: 5 + 1
+    expect(cpuHist[59]).toBe(65); // tick 64: 64 + 1
+    expect(ramHist).toHaveLength(60);
+    expect(ramHist[59]).toBe(1500);
   });
 
   it("running tile carries the hwnd from the status", () => {
@@ -96,23 +100,12 @@ describe("stores", () => {
     expect(tiles[0].hwnd).toBe(0x1234);
   });
 
-  it("drops history for workspaces no longer running", () => {
+  it("running map reflects latest tick; empty tick clears it", () => {
     resetStores();
-    // Tick 1: workspace A running.
     applyStatuses([{ path: "/a.code-workspace", cpu: 10, ram_bytes: 1000, window_count: 1 }]);
-    expect(get(cpuHistory).has("/a.code-workspace")).toBe(true);
-    expect(get(ramHistory).has("/a.code-workspace")).toBe(true);
+    expect(get(running).size).toBe(1);
 
-    // Tick 2: workspace A closed, workspace B running.
-    applyStatuses([{ path: "/b.code-workspace", cpu: 20, ram_bytes: 2000, window_count: 1 }]);
-    expect(get(cpuHistory).has("/a.code-workspace")).toBe(false);
-    expect(get(ramHistory).has("/a.code-workspace")).toBe(false);
-    expect(get(cpuHistory).get("/b.code-workspace")).toEqual([20]);
-
-    // Tick 3: nothing running.
     applyStatuses([]);
-    expect(get(cpuHistory).size).toBe(0);
-    expect(get(ramHistory).size).toBe(0);
     expect(get(running).size).toBe(0);
   });
 });

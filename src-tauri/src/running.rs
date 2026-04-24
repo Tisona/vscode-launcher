@@ -62,19 +62,6 @@ impl Poller {
                 .map(|s| s.to_string_lossy().into_owned())
                 .collect();
 
-            // Diagnostic: print every process whose name looks VSCode-ish so we
-            // can tell whether sysinfo is capturing command-line args on Windows.
-            let name_lc = proc_.name().to_string_lossy().to_lowercase();
-            if name_lc.contains("code") {
-                eprintln!(
-                    "[poller] pid={} name={:?} args_len={} args={:?}",
-                    pid,
-                    proc_.name(),
-                    args.len(),
-                    args
-                );
-            }
-
             if !is_main_electron(&args) {
                 continue;
             }
@@ -93,9 +80,6 @@ impl Poller {
 
         // Enumerate top-level OS windows (no-op on non-Windows).
         let windows = window_enum::enumerate_workspace_windows();
-        for w in &windows {
-            eprintln!("[poller] window: pid={} name={:?}", w.pid, w.workspace_name);
-        }
 
         // Group windows by PID. For each PID, divide its main's tree metrics
         // by the window count.

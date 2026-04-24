@@ -11,9 +11,11 @@ and they all just look like "some code". You click through four of them to
 find the one you meant, break your flow, and swear at your computer.
 
 This launcher is a single window that shows you exactly which workspaces are
-currently open — as big tiles with the workspace name, a live CPU and RAM
-sparkline for the last five minutes, and an icon you chose yourself.
-One click brings that window to the foreground. No more alt-tab roulette.
+currently open — as big tiles with the workspace name and an icon you chose
+yourself. One click brings that window to the foreground, and a small × on
+each tile closes just that window. No more alt-tab roulette. A single stats
+tile above the running tiles shows total VSCode CPU and RAM, with a live
+5-minute sparkline so you can see at a glance if something is running hot.
 
 It also doubles as a workspace picker: point it at your folder of
 `.code-workspace` files and you get a tidy button-grid of every project you
@@ -27,11 +29,15 @@ Built with [Tauri 2](https://tauri.app), Rust, and Svelte.
 - **One-click workspace launch** — click a button to open the workspace in
   VSCode. If it's already open, VSCode focuses the existing window instead
   of spawning a second one.
-- **Running-workspace tiles** — large tiles at the top of the window for every
+- **Running-workspace tiles** — tiles at the top of the window for every
   VSCode window currently holding a `.code-workspace` open, including ones
-  outside your configured folder. Each tile shows live CPU and RAM
-  sparklines over a 5-minute window, plus a badge if you have the same
-  workspace open in multiple windows.
+  outside your configured folder. A badge appears if you have the same
+  workspace open in multiple windows, and each tile has an × button to
+  close that specific workspace window.
+- **Aggregate stats tile** — single tile above the running list showing
+  total CPU and RAM across all VSCode processes, with a 5-minute sparkline.
+  (Per-tile metrics aren't possible because VSCode hosts all workspace
+  windows in a single main process with a shared UI thread.)
 - **Pinned favourites** — right-click any workspace to pin it. Pinned
   workspaces get their own section between Running and All.
 - **Custom per-workspace icons** — auto-picks a sibling PNG/SVG/JPG next to

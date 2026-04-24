@@ -35,11 +35,13 @@ pub fn run() {
             commands::get_config,
             commands::set_root_folder,
             commands::get_workspaces,
+            commands::get_running_workspaces,
             commands::launch,
             commands::set_pinned,
             commands::set_icon,
             commands::resolved_code_binary,
             commands::focus_window,
+            commands::close_workspace_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

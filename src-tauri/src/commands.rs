@@ -1,6 +1,7 @@
 use crate::config::{self, Config};
 use crate::error::{AppError, AppResult};
 use crate::launcher;
+use crate::running::WorkspaceStatus;
 use crate::scanner::{self, WorkspaceEntry};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -9,6 +10,7 @@ use tauri::State;
 pub struct AppState {
     pub config: Mutex<Config>,
     pub config_path: PathBuf,
+    pub running: Mutex<Vec<WorkspaceStatus>>,
 }
 
 impl AppState {
@@ -17,6 +19,7 @@ impl AppState {
         Ok(Self {
             config: Mutex::new(config),
             config_path,
+            running: Mutex::new(Vec::new()),
         })
     }
 
@@ -49,6 +52,11 @@ pub fn get_workspaces(state: State<'_, AppState>) -> AppResult<Vec<WorkspaceEntr
         Some(p) => Ok(scanner::scan(&p)?),
         None => Ok(Vec::new()),
     }
+}
+
+#[tauri::command]
+pub fn get_running_workspaces(state: State<'_, AppState>) -> Vec<WorkspaceStatus> {
+    state.running.lock().unwrap().clone()
 }
 
 #[tauri::command]
@@ -108,7 +116,17 @@ pub fn focus_window(hwnd: i64) -> AppResult<()> {
     unsafe {
         win::force_foreground(hwnd);
     }
-    let _ = hwnd; // silence unused on non-windows
+    let _ = hwnd;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_workspace_window(hwnd: i64) -> AppResult<()> {
+    #[cfg(windows)]
+    unsafe {
+        win::post_close(hwnd);
+    }
+    let _ = hwnd;
     Ok(())
 }
 
@@ -122,24 +140,35 @@ mod win {
         fn SetForegroundWindow(hwnd: *mut core::ffi::c_void) -> i32;
         fn BringWindowToTop(hwnd: *mut core::ffi::c_void) -> i32;
         fn AllowSetForegroundWindow(dw_process_id: u32) -> i32;
+        fn PostMessageW(
+            hwnd: *mut core::ffi::c_void,
+            msg: u32,
+            w_param: usize,
+            l_param: isize,
+        ) -> i32;
     }
     const SW_RESTORE: i32 = 9;
     const ASFW_ANY: u32 = 0xFFFF_FFFF;
+    const WM_CLOSE: u32 = 0x0010;
 
     pub unsafe fn force_foreground(hwnd: i64) {
         let hwnd = hwnd as isize as *mut core::ffi::c_void;
         if IsWindow(hwnd) == 0 {
             return;
         }
-        // Grant any process permission to take foreground (belt + braces —
-        // SetForegroundWindow from our own foreground process should work
-        // anyway, but some Windows configurations are strict).
         AllowSetForegroundWindow(ASFW_ANY);
-        // If the window is minimized, restore it first.
         if IsIconic(hwnd) != 0 {
             ShowWindow(hwnd, SW_RESTORE);
         }
         BringWindowToTop(hwnd);
         SetForegroundWindow(hwnd);
+    }
+
+    pub unsafe fn post_close(hwnd: i64) {
+        let hwnd = hwnd as isize as *mut core::ffi::c_void;
+        if IsWindow(hwnd) == 0 {
+            return;
+        }
+        PostMessageW(hwnd, WM_CLOSE, 0, 0);
     }
 }

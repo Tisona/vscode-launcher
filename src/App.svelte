@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { getConfig, getWorkspaces, onRunningUpdated } from "./lib/ipc";
+  import { getConfig, getRunningWorkspaces, getWorkspaces, onRunningUpdated } from "./lib/ipc";
   import { applyStatuses, config, scanError, workspaces } from "./lib/stores";
   import EmptyState from "./lib/components/EmptyState.svelte";
   import PinnedSection from "./lib/components/PinnedSection.svelte";
@@ -31,6 +31,13 @@
         }
       }
       unlisten = await onRunningUpdated((statuses) => applyStatuses(statuses));
+      // Pull current state right away; the polling thread's first emit may
+      // have fired before this listener was attached.
+      try {
+        applyStatuses(await getRunningWorkspaces());
+      } catch {
+        // ignore — next tick will populate it
+      }
     } catch (e) {
       pushToast(`Failed to initialize: ${e}`);
     } finally {

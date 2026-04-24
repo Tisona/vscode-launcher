@@ -6,8 +6,8 @@ const HISTORY_SIZE = 60;
 export const config = writable<Config>({ root_folder: null, pinned: [], icons: {} });
 export const workspaces = writable<WorkspaceEntry[]>([]);
 export const running = writable<Map<string, WorkspaceStatus>>(new Map());
-export const cpuHistory = writable<Map<string, number[]>>(new Map());
-export const ramHistory = writable<Map<string, number[]>>(new Map());
+export const totalCpuHistory = writable<number[]>([]);
+export const totalRamHistory = writable<number[]>([]);
 export const scanError = writable<string | null>(null);
 
 /** Call from the onRunningUpdated callback. */
@@ -15,11 +15,15 @@ export function applyStatuses(statuses: WorkspaceStatus[]) {
   const currentWorkspaces = get(workspaces);
   const byDisplayName = new Map(currentWorkspaces.map((w) => [w.display_name, w]));
   const m = new Map<string, WorkspaceStatus>();
+  let cpuSum = 0;
+  let ramSum = 0;
   for (const s of statuses) {
+    cpuSum += s.cpu;
+    ramSum += s.ram_bytes;
     let key = s.path;
     if (!key && s.displayNameHint) {
       const match = byDisplayName.get(s.displayNameHint);
-      if (!match) continue; // name-only status we can't resolve → drop
+      if (!match) continue;
       key = match.path;
     } else if (!key) {
       continue;
@@ -28,25 +32,14 @@ export function applyStatuses(statuses: WorkspaceStatus[]) {
   }
   running.set(m);
 
-  cpuHistory.update((hist) => {
-    const next = new Map<string, number[]>();
-    for (const [path, s] of m) {
-      const prev = hist.get(path) ?? [];
-      const arr = [...prev, s.cpu];
-      if (arr.length > HISTORY_SIZE) arr.splice(0, arr.length - HISTORY_SIZE);
-      next.set(path, arr);
-    }
+  totalCpuHistory.update((arr) => {
+    const next = [...arr, cpuSum];
+    if (next.length > HISTORY_SIZE) next.splice(0, next.length - HISTORY_SIZE);
     return next;
   });
-
-  ramHistory.update((hist) => {
-    const next = new Map<string, number[]>();
-    for (const [path, s] of m) {
-      const prev = hist.get(path) ?? [];
-      const arr = [...prev, s.ram_bytes];
-      if (arr.length > HISTORY_SIZE) arr.splice(0, arr.length - HISTORY_SIZE);
-      next.set(path, arr);
-    }
+  totalRamHistory.update((arr) => {
+    const next = [...arr, ramSum];
+    if (next.length > HISTORY_SIZE) next.splice(0, next.length - HISTORY_SIZE);
     return next;
   });
 }
@@ -57,21 +50,14 @@ export interface TileModel {
   icon: string | null;
   isRunning: boolean;
   isPinned: boolean;
-  // Only populated when isRunning === true:
-  cpu: number;
-  ramBytes: number;
   windowCount: number;
-  cpuHistory: number[];
-  ramHistory: number[];
   hwnd: number | null;
 }
 
 const buildTile = (
   e: WorkspaceEntry,
   cfg: Config,
-  runMap: Map<string, WorkspaceStatus>,
-  cpuHist: Map<string, number[]>,
-  ramHist: Map<string, number[]>
+  runMap: Map<string, WorkspaceStatus>
 ): TileModel => {
   const status = runMap.get(e.path);
   const override = cfg.icons[e.path] ?? null;
@@ -81,24 +67,20 @@ const buildTile = (
     icon: override ?? e.auto_icon,
     isRunning: !!status,
     isPinned: cfg.pinned.includes(e.path),
-    cpu: status?.cpu ?? 0,
-    ramBytes: status?.ram_bytes ?? 0,
     windowCount: status?.window_count ?? 0,
-    cpuHistory: cpuHist.get(e.path) ?? [],
-    ramHistory: ramHist.get(e.path) ?? [],
     hwnd: status?.hwnd ?? null,
   };
 };
 
 export const runningTiles: Readable<TileModel[]> = derived(
-  [workspaces, running, config, cpuHistory, ramHistory],
-  ([$ws, $run, $cfg, $cpuH, $ramH]) => {
+  [workspaces, running, config],
+  ([$ws, $run, $cfg]) => {
     const known = new Map($ws.map((w) => [w.path, w]));
     const result: TileModel[] = [];
     for (const [path, status] of $run) {
       const w = known.get(path);
       if (w) {
-        result.push(buildTile(w, $cfg, $run, $cpuH, $ramH));
+        result.push(buildTile(w, $cfg, $run));
       } else {
         const name = path.split(/[\\/]/).pop()?.replace(/\.code-workspace$/, "") ?? path;
         result.push({
@@ -107,11 +89,7 @@ export const runningTiles: Readable<TileModel[]> = derived(
           icon: $cfg.icons[path] ?? null,
           isRunning: true,
           isPinned: $cfg.pinned.includes(path),
-          cpu: status.cpu,
-          ramBytes: status.ram_bytes,
           windowCount: status.window_count,
-          cpuHistory: $cpuH.get(path) ?? [],
-          ramHistory: $ramH.get(path) ?? [],
           hwnd: status.hwnd ?? null,
         });
       }
@@ -123,14 +101,14 @@ export const runningTiles: Readable<TileModel[]> = derived(
 );
 
 export const pinnedTiles: Readable<TileModel[]> = derived(
-  [workspaces, running, config, cpuHistory, ramHistory],
-  ([$ws, $run, $cfg, $cpuH, $ramH]) =>
+  [workspaces, running, config],
+  ([$ws, $run, $cfg]) =>
     $ws
       .filter((w) => $cfg.pinned.includes(w.path))
-      .map((w) => buildTile(w, $cfg, $run, $cpuH, $ramH))
+      .map((w) => buildTile(w, $cfg, $run))
 );
 
 export const allTiles: Readable<TileModel[]> = derived(
-  [workspaces, running, config, cpuHistory, ramHistory],
-  ([$ws, $run, $cfg, $cpuH, $ramH]) => $ws.map((w) => buildTile(w, $cfg, $run, $cpuH, $ramH))
+  [workspaces, running, config],
+  ([$ws, $run, $cfg]) => $ws.map((w) => buildTile(w, $cfg, $run))
 );

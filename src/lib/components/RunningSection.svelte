@@ -1,11 +1,13 @@
 <script lang="ts">
   import { runningTiles } from "../stores";
   import WorkspaceButton from "./WorkspaceButton.svelte";
+  import StatsTile from "./StatsTile.svelte";
 </script>
 
 {#if $runningTiles.length > 0}
   <section class="running">
     <h2>Running</h2>
+    <StatsTile />
     <div class="grid">
       {#each $runningTiles as tile (tile.path)}
         <WorkspaceButton {tile} size="large" />

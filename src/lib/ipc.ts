@@ -6,8 +6,12 @@ export const getConfig = () => invoke<Config>("get_config");
 export const setRootFolder = (path: string | null) =>
   invoke<Config>("set_root_folder", { path });
 export const getWorkspaces = () => invoke<WorkspaceEntry[]>("get_workspaces");
+export const getRunningWorkspaces = () =>
+  invoke<WorkspaceStatus[]>("get_running_workspaces");
 export const launch = (path: string) => invoke<void>("launch", { path });
 export const focusWindow = (hwnd: number) => invoke<void>("focus_window", { hwnd });
+export const closeWorkspaceWindow = (hwnd: number) =>
+  invoke<void>("close_workspace_window", { hwnd });
 export const setPinned = (path: string, pinned: boolean) =>
   invoke<Config>("set_pinned", { path, pinned });
 export const setIcon = (workspace: string, icon: string | null) =>
