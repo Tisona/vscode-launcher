@@ -14,7 +14,6 @@ pub fn spawn(app: AppHandle) {
         let mut poller = Poller::new();
         let mut tick_no: u64 = 0;
         loop {
-            std::thread::sleep(POLL_INTERVAL);
             tick_no += 1;
             let current = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| poller.tick()))
                 .unwrap_or_default();
@@ -36,6 +35,7 @@ pub fn spawn(app: AppHandle) {
                 Ok(()) => {}
                 Err(e) => eprintln!("[polling] emit failed: {}", e),
             }
+            std::thread::sleep(POLL_INTERVAL);
         }
     });
 }
