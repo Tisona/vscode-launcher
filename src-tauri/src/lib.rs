@@ -39,6 +39,7 @@ pub fn run() {
             commands::set_pinned,
             commands::set_icon,
             commands::resolved_code_binary,
+            commands::focus_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

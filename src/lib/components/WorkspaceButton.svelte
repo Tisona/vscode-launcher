@@ -1,7 +1,7 @@
 <script lang="ts">
   import { convertFileSrc } from "@tauri-apps/api/core";
   import type { TileModel } from "../stores";
-  import { launch } from "../ipc";
+  import { focusWindow, launch } from "../ipc";
   import { openMenu } from "../contextMenu";
   import { pushToast } from "../toasts";
 
@@ -12,7 +12,11 @@
 
   async function handleClick() {
     try {
-      await launch(tile.path);
+      if (tile.isRunning && tile.hwnd) {
+        await focusWindow(tile.hwnd);
+      } else {
+        await launch(tile.path);
+      }
     } catch (e) {
       pushToast(`Launch failed: ${e}`);
     }

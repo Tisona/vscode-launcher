@@ -37,6 +37,7 @@ pub fn extract_workspace_name_from_title(title: &str) -> Option<String> {
 #[derive(Debug, Clone)]
 pub struct WorkspaceWindow {
     pub pid: u32,
+    pub hwnd: i64,
     pub workspace_name: String,
 }
 
@@ -75,9 +76,11 @@ unsafe extern "system" fn enum_proc(hwnd: winapi::HWND, lparam: isize) -> i32 {
     };
     let mut pid: u32 = 0;
     winapi::GetWindowThreadProcessId(hwnd, &mut pid);
+    let hwnd_val = hwnd as isize as i64;
     let out = &mut *(lparam as *mut Vec<WorkspaceWindow>);
     out.push(WorkspaceWindow {
         pid,
+        hwnd: hwnd_val,
         workspace_name: name,
     });
     1

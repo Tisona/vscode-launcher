@@ -63,6 +63,7 @@ export interface TileModel {
   windowCount: number;
   cpuHistory: number[];
   ramHistory: number[];
+  hwnd: number | null;
 }
 
 const buildTile = (
@@ -85,6 +86,7 @@ const buildTile = (
     windowCount: status?.window_count ?? 0,
     cpuHistory: cpuHist.get(e.path) ?? [],
     ramHistory: ramHist.get(e.path) ?? [],
+    hwnd: status?.hwnd ?? null,
   };
 };
 
@@ -110,6 +112,7 @@ export const runningTiles: Readable<TileModel[]> = derived(
           windowCount: status.window_count,
           cpuHistory: $cpuH.get(path) ?? [],
           ramHistory: $ramH.get(path) ?? [],
+          hwnd: status.hwnd ?? null,
         });
       }
     }

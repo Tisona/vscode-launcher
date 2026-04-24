@@ -84,6 +84,18 @@ describe("stores", () => {
     expect(hist[59]).toBe(64);
   });
 
+  it("running tile carries the hwnd from the status", () => {
+    resetStores();
+    workspaces.set([
+      { path: "/a.code-workspace", display_name: "a", auto_icon: null },
+    ]);
+    applyStatuses([
+      { path: "/a.code-workspace", cpu: 1, ram_bytes: 100, window_count: 1, hwnd: 0x1234 },
+    ]);
+    const tiles = get(allTiles);
+    expect(tiles[0].hwnd).toBe(0x1234);
+  });
+
   it("drops history for workspaces no longer running", () => {
     resetStores();
     // Tick 1: workspace A running.

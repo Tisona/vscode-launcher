@@ -101,3 +101,45 @@ pub fn set_icon(
 pub fn resolved_code_binary() -> Option<PathBuf> {
     launcher::resolve_code_binary()
 }
+
+#[tauri::command]
+pub fn focus_window(hwnd: i64) -> AppResult<()> {
+    #[cfg(windows)]
+    unsafe {
+        win::force_foreground(hwnd);
+    }
+    let _ = hwnd; // silence unused on non-windows
+    Ok(())
+}
+
+#[cfg(windows)]
+mod win {
+    #[link(name = "user32")]
+    extern "system" {
+        fn IsWindow(hwnd: *mut core::ffi::c_void) -> i32;
+        fn IsIconic(hwnd: *mut core::ffi::c_void) -> i32;
+        fn ShowWindow(hwnd: *mut core::ffi::c_void, n_cmd_show: i32) -> i32;
+        fn SetForegroundWindow(hwnd: *mut core::ffi::c_void) -> i32;
+        fn BringWindowToTop(hwnd: *mut core::ffi::c_void) -> i32;
+        fn AllowSetForegroundWindow(dw_process_id: u32) -> i32;
+    }
+    const SW_RESTORE: i32 = 9;
+    const ASFW_ANY: u32 = 0xFFFF_FFFF;
+
+    pub unsafe fn force_foreground(hwnd: i64) {
+        let hwnd = hwnd as isize as *mut core::ffi::c_void;
+        if IsWindow(hwnd) == 0 {
+            return;
+        }
+        // Grant any process permission to take foreground (belt + braces —
+        // SetForegroundWindow from our own foreground process should work
+        // anyway, but some Windows configurations are strict).
+        AllowSetForegroundWindow(ASFW_ANY);
+        // If the window is minimized, restore it first.
+        if IsIconic(hwnd) != 0 {
+            ShowWindow(hwnd, SW_RESTORE);
+        }
+        BringWindowToTop(hwnd);
+        SetForegroundWindow(hwnd);
+    }
+}

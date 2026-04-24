@@ -11,6 +11,7 @@ pub struct WorkspaceStatus {
     pub window_count: u32,
     #[serde(rename = "displayNameHint")]
     pub display_name_hint: Option<String>,
+    pub hwnd: Option<i64>,
 }
 
 pub struct Poller {
@@ -114,7 +115,9 @@ impl Poller {
         //
         // Hash key includes hint so two different name-only workspaces stay
         // separate.
-        let mut per_ws: HashMap<(PathBuf, Option<String>), (f32, u64, u32)> = HashMap::new();
+        // Per-workspace aggregation value: (cpu_sum, ram_sum, window_count, hwnd_first).
+        type WsAgg = (f32, u64, u32, Option<i64>);
+        let mut per_ws: HashMap<(PathBuf, Option<String>), WsAgg> = HashMap::new();
 
         let mut pids_with_windows: std::collections::HashSet<Pid> =
             std::collections::HashSet::new();
@@ -142,10 +145,13 @@ impl Poller {
                     (Some(p), Some(n)) if n == &win.workspace_name => (p.clone(), None),
                     _ => (PathBuf::new(), Some(win.workspace_name.clone())),
                 };
-                let entry = per_ws.entry((path, hint)).or_insert((0.0, 0, 0));
+                let entry = per_ws.entry((path, hint)).or_insert((0.0, 0, 0, None));
                 entry.0 += share_cpu;
                 entry.1 += share_ram;
                 entry.2 += 1;
+                if entry.3.is_none() {
+                    entry.3 = Some(win.hwnd);
+                }
             }
         }
 
@@ -159,7 +165,9 @@ impl Poller {
             let Some(ws) = &info.argv_workspace else {
                 continue;
             };
-            let entry = per_ws.entry((ws.clone(), None)).or_insert((0.0, 0, 0));
+            let entry = per_ws
+                .entry((ws.clone(), None))
+                .or_insert((0.0, 0, 0, None));
             entry.0 += info.tree_cpu;
             entry.1 += info.tree_ram;
             entry.2 += 1;
@@ -167,12 +175,13 @@ impl Poller {
 
         per_ws
             .into_iter()
-            .map(|((path, hint), (cpu, ram, count))| WorkspaceStatus {
+            .map(|((path, hint), (cpu, ram, count, hwnd))| WorkspaceStatus {
                 path,
                 cpu,
                 ram_bytes: ram,
                 window_count: count,
                 display_name_hint: hint,
+                hwnd,
             })
             .collect()
     }

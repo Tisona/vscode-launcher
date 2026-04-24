@@ -16,4 +16,5 @@ export interface WorkspaceStatus {
   ram_bytes: number;
   window_count: number;
   displayNameHint?: string | null;
+  hwnd?: number | null;
 }
