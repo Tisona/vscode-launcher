@@ -46,7 +46,8 @@ Built with [Tauri 2](https://tauri.app), Rust, and Svelte.
   the `.code-workspace` file, or you can right-click → Set icon… to choose
   any image from disk.
 - **Cross-platform** — Windows, macOS (universal: Intel + Apple Silicon),
-  Linux.
+  Linux. Only tested on Windows; macOS and Linux builds are produced by
+  CI but have not been exercised end-to-end.
 
 ## Install
 
